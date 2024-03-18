@@ -1,0 +1,51 @@
+﻿Program.Sub.Preflight.Start
+Program.Sub.Preflight.End
+
+Program.Sub.Main.Start
+
+'Customer: CRAVO
+'Quote: 12888-0
+'Programmer: Bryan Pham
+'Description: CRAVO EQUIPMENT has a sequencing method that groups together tier 1 BOM components for scheduling and shipping purposes. Those grouping values will be passed in to GSS through the BOM Compare utility. However, since the BOM is updated often and those sequences may change, those values will need to be copied over to the sales order so they don't get overwritten
+'Date: 10/11/2021
+'Hook 12230 - post save Order Lines screen
+
+v.Local.sPart.Declare
+v.Local.sSQL.Declare
+v.Local.sRet.Declare
+v.local.iCnt.Declare
+v.Local.sOrd.Declare
+
+f.ODBC.Connection!con.OpenCompanyConnection
+f.Intrinsic.Control.If(v.Caller.Hook,=,"12230")
+	v.Local.sPart.Set(v.Passed.000052)
+	v.Local.sOrd.Set(v.Passed.000060)
+	f.Intrinsic.String.LPad(v.Local.sOrd,"0",7,v.Local.sOrd)
+	f.Intrinsic.String.Build("Select CODE_BOM from V_INVENTORY_MSTR where PART = '{0}'",v.Local.sPart,v.Local.sSQL)
+	f.ODBC.Connection!con.ExecuteAndReturn(v.local.sSQL,v.Local.sRet)
+	f.Intrinsic.Control.if(v.Local.sRet,=,"B",or,v.Local.sRet,=,"C")
+		f.Intrinsic.Control.If(v.DataTable.dtBOM.Exists,=,true)
+			f.Data.Datatable.Close("dtBOM")
+		f.Intrinsic.Control.EndIf
+		f.Intrinsic.String.Build("Select * from V_BOM_MSTR where PARENT = '{0}'",v.Local.sPart,v.Local.sSQL)
+		f.Data.Datatable.CreateFromSQL("dtBOM","con",v.Local.sSQL,true)
+		
+		f.Intrinsic.Control.For(v.Local.iCnt,0,v.DataTable.dtBOM.RowCount--,1)
+			f.Intrinsic.String.Build("Select RTRIM(MEMO_1) from BOM_ENG where PART = '{0}'",v.DataTable.dtBOM(v.Local.iCnt).PART!FieldValTrim,v.Local.sSQL)
+			f.ODBC.Connection!con.ExecuteAndReturn(v.Local.sSQL,v.Local.sRet)
+			f.Intrinsic.String.Build("Update ORDER_LINES set USER_1 = '{0}' where ORDER_NO = '{1}' and PART = '{2}' and RECORD_TYPE = 'L'",v.Local.sRet,v.Local.sOrd,v.DataTable.dtBOM(v.Local.iCnt).PART!FieldValTrim,v.Local.sSQL)
+			f.ODBC.Connection!con.Execute(v.Local.sSQL)
+		f.Intrinsic.Control.Next(v.Local.iCnt)
+	f.Intrinsic.Control.EndIf
+	
+	
+f.Intrinsic.Control.EndIf
+
+f.ODBC.Connection!con.Close
+f.Intrinsic.Control.End
+Program.Sub.Main.End
+
+Program.Sub.Comments.Start
+${$5$}$3.0.0.0$}$1
+${$6$}$bpham$}$20220311103943369$}$Di0riF4Q5RIv6jxva5zSWBaTvp+T0Dt6/1QKHmJyw0eRR9cIe7e2KoOSTRQckeidYZX6LmFFeBE=
+Program.Sub.Comments.End
